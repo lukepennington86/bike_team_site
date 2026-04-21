@@ -6,6 +6,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+JPG_EXTENSIONS = {".jpg", ".jpeg"}
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
@@ -53,10 +54,9 @@ def upload_image():
 
     requested_extension = Path(image.filename).suffix.lower()
     extensions_match = requested_extension == detected_extension
-    jpg_equivalent = requested_extension in {".jpg", ".jpeg"} and detected_extension in {
-        ".jpg",
-        ".jpeg",
-    }
+    jpg_equivalent = (
+        requested_extension in JPG_EXTENSIONS and detected_extension in JPG_EXTENSIONS
+    )
     if not (extensions_match or jpg_equivalent):
         return jsonify({"error": "Only image files are allowed"}), 400
 
@@ -86,7 +86,7 @@ def uploaded_file(filename: str):
 
     upload_dir = Path(app.config["UPLOAD_FOLDER"]).resolve()
     requested_path = (upload_dir / filename).resolve()
-    if upload_dir not in requested_path.parents or not requested_path.exists():
+    if not requested_path.is_relative_to(upload_dir) or not requested_path.exists():
         abort(404)
 
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
