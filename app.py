@@ -1,8 +1,8 @@
-import os
 import uuid
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
@@ -14,6 +14,18 @@ app.config["UPLOAD_FOLDER"] = str(Path(__file__).parent / "uploads")
 
 def _is_allowed_image(filename: str) -> bool:
     return Path(filename).suffix.lower() in ALLOWED_EXTENSIONS
+
+
+def _detect_image_extension(header_bytes: bytes) -> str | None:
+    if header_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if header_bytes.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if header_bytes.startswith((b"GIF87a", b"GIF89a")):
+        return ".gif"
+    if header_bytes.startswith(b"RIFF") and b"WEBP" in header_bytes[:16]:
+        return ".webp"
+    return None
 
 
 @app.get("/")
@@ -31,6 +43,18 @@ def upload_image():
         return jsonify({"error": "Image file is required"}), 400
 
     if not _is_allowed_image(image.filename):
+        return jsonify({"error": "Only image files are allowed"}), 400
+
+    signature = image.stream.read(16)
+    image.stream.seek(0)
+    detected_extension = _detect_image_extension(signature)
+    if detected_extension is None:
+        return jsonify({"error": "Only image files are allowed"}), 400
+
+    requested_extension = Path(image.filename).suffix.lower()
+    if requested_extension in {".jpg", ".jpeg"} and detected_extension == ".jpg":
+        pass
+    elif requested_extension != detected_extension:
         return jsonify({"error": "Only image files are allowed"}), 400
 
     upload_dir = Path(app.config["UPLOAD_FOLDER"])
@@ -51,7 +75,18 @@ def upload_image():
 
 @app.get("/uploads/<path:filename>")
 def uploaded_file(filename: str):
+    if not _is_allowed_image(filename):
+        abort(404)
+
+    if not Path(app.config["UPLOAD_FOLDER"], filename).exists():
+        abort(404)
+
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(_error):
+    return jsonify({"error": "Image exceeds max size (10MB)"}), 413
 
 
 if __name__ == "__main__":

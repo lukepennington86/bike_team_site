@@ -21,9 +21,15 @@ class UploadTests(unittest.TestCase):
         self.assertIn(b"Upload an image", response.data)
 
     def test_upload_image_success(self):
+        tiny_png = (
+            b"\x89PNG\r\n\x1a\n"
+            b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
+            b"\x00\x00\x00\x0cIDAT\x08\x99c```\x00\x00\x00\x04\x00\x01\xf6\x178U"
+            b"\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
         response = self.client.post(
             "/upload",
-            data={"image": (io.BytesIO(b"\x89PNG\r\n\x1a\n"), "photo.png")},
+            data={"image": (io.BytesIO(tiny_png), "photo.png")},
             content_type="multipart/form-data",
         )
 
@@ -44,6 +50,27 @@ class UploadTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.get_json()["error"], "Only image files are allowed")
+
+    def test_upload_rejects_invalid_image_content(self):
+        response = self.client.post(
+            "/upload",
+            data={"image": (io.BytesIO(b"not-a-real-image"), "photo.png")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"], "Only image files are allowed")
+
+    def test_upload_rejects_file_over_limit(self):
+        oversized = io.BytesIO(b"a" * ((10 * 1024 * 1024) + 1))
+        response = self.client.post(
+            "/upload",
+            data={"image": (oversized, "photo.png")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.get_json()["error"], "Image exceeds max size (10MB)")
 
 
 if __name__ == "__main__":
