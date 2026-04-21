@@ -62,7 +62,9 @@ class UploadTests(unittest.TestCase):
         self.assertEqual(response.get_json()["error"], "Only image files are allowed")
 
     def test_upload_rejects_file_over_limit(self):
-        oversized = io.BytesIO(b"a" * ((10 * 1024 * 1024) + 1))
+        oversized = io.BytesIO(
+            b"\x89PNG\r\n\x1a\n" + (b"a" * ((10 * 1024 * 1024) + 1))
+        )
         response = self.client.post(
             "/upload",
             data={"image": (oversized, "photo.png")},

@@ -52,7 +52,7 @@ def upload_image():
         return jsonify({"error": "Only image files are allowed"}), 400
 
     requested_extension = Path(image.filename).suffix.lower()
-    if requested_extension in {".jpg", ".jpeg"} and detected_extension == ".jpg":
+    if requested_extension in {".jpg", ".jpeg"} and detected_extension in {".jpg", ".jpeg"}:
         pass
     elif requested_extension != detected_extension:
         return jsonify({"error": "Only image files are allowed"}), 400
@@ -75,6 +75,9 @@ def upload_image():
 
 @app.get("/uploads/<path:filename>")
 def uploaded_file(filename: str):
+    if secure_filename(filename) != filename:
+        abort(404)
+
     if not _is_allowed_image(filename):
         abort(404)
 
@@ -90,4 +93,4 @@ def handle_file_too_large(_error):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="127.0.0.1", port=8080)
