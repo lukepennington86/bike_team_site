@@ -25,7 +25,7 @@ def _detect_image_extension(header_bytes: bytes) -> str | None:
         return ".jpg"
     if header_bytes.startswith((b"GIF87a", b"GIF89a")):
         return ".gif"
-    if header_bytes.startswith(b"RIFF") and b"WEBP" in header_bytes[:16]:
+    if header_bytes.startswith(b"RIFF") and header_bytes[8:12] == b"WEBP":
         return ".webp"
     return None
 
