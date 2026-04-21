@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 JPG_EXTENSIONS = {".jpg", ".jpeg"}
+SIGNATURE_READ_BYTES = 16
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
@@ -46,7 +47,7 @@ def upload_image():
     if not _is_allowed_image(image.filename):
         return jsonify({"error": "Only image files are allowed"}), 400
 
-    signature = image.stream.read(16)
+    signature = image.stream.read(SIGNATURE_READ_BYTES)
     image.stream.seek(0)
     detected_extension = _detect_image_extension(signature)
     if detected_extension is None:
@@ -76,7 +77,7 @@ def upload_image():
     )
 
 
-@app.get("/uploads/<path:filename>")
+@app.get("/uploads/<filename>")
 def uploaded_file(filename: str):
     if secure_filename(filename) != filename:
         abort(404)
