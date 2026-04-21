@@ -62,6 +62,7 @@ class UploadTests(unittest.TestCase):
         self.assertEqual(response.get_json()["error"], "Only image files are allowed")
 
     def test_upload_rejects_file_over_limit(self):
+        # Size is enforced by Flask before content validation is evaluated.
         oversized = io.BytesIO(
             b"\x89PNG\r\n\x1a\n" + (b"a" * ((10 * 1024 * 1024) + 1))
         )
@@ -73,6 +74,16 @@ class UploadTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 413)
         self.assertEqual(response.get_json()["error"], "Image exceeds max size (10MB)")
+
+    def test_upload_accepts_jpeg_extension_variants(self):
+        response = self.client.post(
+            "/upload",
+            data={"image": (io.BytesIO(b"\xff\xd8\xff\xdb"), "photo.jpeg")},
+            content_type="multipart/form-data",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["message"], "Image uploaded successfully")
 
 
 if __name__ == "__main__":
