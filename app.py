@@ -52,9 +52,12 @@ def upload_image():
         return jsonify({"error": "Only image files are allowed"}), 400
 
     requested_extension = Path(image.filename).suffix.lower()
-    if requested_extension in {".jpg", ".jpeg"} and detected_extension in {".jpg", ".jpeg"}:
-        pass
-    elif requested_extension != detected_extension:
+    extensions_match = requested_extension == detected_extension
+    jpg_equivalent = requested_extension in {".jpg", ".jpeg"} and detected_extension in {
+        ".jpg",
+        ".jpeg",
+    }
+    if not (extensions_match or jpg_equivalent):
         return jsonify({"error": "Only image files are allowed"}), 400
 
     upload_dir = Path(app.config["UPLOAD_FOLDER"])
@@ -81,7 +84,9 @@ def uploaded_file(filename: str):
     if not _is_allowed_image(filename):
         abort(404)
 
-    if not Path(app.config["UPLOAD_FOLDER"], filename).exists():
+    upload_dir = Path(app.config["UPLOAD_FOLDER"]).resolve()
+    requested_path = (upload_dir / filename).resolve()
+    if upload_dir not in requested_path.parents or not requested_path.exists():
         abort(404)
 
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
